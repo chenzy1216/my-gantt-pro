@@ -109,14 +109,24 @@ const App: React.FC = () => {
   const geminiService = useMemo(() => new GeminiService(), []);
 
   const encodeData = (data: any) => {
-    const jsonStr = JSON.stringify(data);
-    return btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+    try {
+      const jsonStr = JSON.stringify(data);
+      return btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+    } catch (e) {
+      console.error("Encoding failed", e);
+      return "";
+    }
   };
 
   const decodeData = (encoded: string) => {
-    const binStr = atob(encoded);
-    const decodedUri = Array.from(binStr).map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('');
-    return JSON.parse(decodeURIComponent(decodedUri));
+    try {
+      const binStr = atob(encoded);
+      const decodedUri = Array.from(binStr).map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('');
+      return JSON.parse(decodeURIComponent(decodedUri));
+    } catch (e) {
+      console.error("Decoding failed", e);
+      return null;
+    }
   };
 
   const loadProjectData = useCallback((data: any) => {
@@ -141,19 +151,18 @@ const App: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const queryData = urlParams.get('data');
     if (queryData) {
-      try {
-        const decoded = decodeData(queryData);
+      const decoded = decodeData(queryData);
+      if (decoded) {
         loadProjectData(decoded);
         window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      } catch (e) { console.error("URL Data Error", e); }
-    }
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        loadProjectData(parsed);
-      } catch (e) { console.error("Load LocalStorage Error", e); }
+      }
+    } else {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          loadProjectData(JSON.parse(saved));
+        } catch (e) { console.error("LocalStorage load error", e); }
+      }
     }
   }, [loadProjectData]);
 
@@ -178,19 +187,18 @@ const App: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     const currentData = { projectTitle, projectSubtitle, departments, tasks: tasks.map(t => ({ ...t, startDate: t.startDate.toISOString(), endDate: t.endDate.toISOString() })) };
-    try {
-      const encoded = encodeData(currentData);
-      const baseUrl = window.location.href.split('?')[0].split('#')[0];
-      const url = `${baseUrl}?data=${encoded}`;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => {
-          setShowSharedToast(true);
-          setTimeout(() => setShowSharedToast(false), 3000);
-        }).catch(() => window.prompt("分享連結：", url));
-      } else {
-        window.prompt("分享連結：", url);
-      }
-    } catch (e) { alert('連結產生失敗'); }
+    const encoded = encodeData(currentData);
+    if (!encoded) return;
+    const baseUrl = window.location.href.split('?')[0].split('#')[0];
+    const url = `${baseUrl}?data=${encoded}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setShowSharedToast(true);
+        setTimeout(() => setShowSharedToast(false), 3000);
+      }).catch(() => window.prompt("分享連結：", url));
+    } else {
+      window.prompt("分享連結：", url);
+    }
   };
 
   const handleExportExcel = () => {
@@ -237,7 +245,6 @@ const App: React.FC = () => {
   const handleUpdateTask = useCallback((updatedTask: Task) => { setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t)); setEditingTask(null); }, []);
   const handleDeleteTask = useCallback((id: string) => { setTasks(prev => prev.filter(t => t.id !== id)); setEditingTask(null); if (selectedTaskId === id) setSelectedTaskId(null); }, [selectedTaskId]);
 
-  // Fix: Added missing handleSaveDepartment function to handle department creation/editing
   const handleSaveDepartment = (name: string) => {
     if (deptToEdit?.id) {
       setDepartments(prev => prev.map(d => d.id === deptToEdit.id ? { ...d, name } : d));
@@ -247,7 +254,6 @@ const App: React.FC = () => {
     setDeptToEdit(null);
   };
 
-  // Fix: Added missing handleReorderDepartments function to handle department sequence updates
   const handleReorderDepartments = (startIndex: number, endIndex: number) => {
     setDepartments(prev => {
       const result = Array.from(prev);
@@ -334,7 +340,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar (Responsive) */}
+        {/* Sidebar */}
         <aside className={`
           fixed md:relative inset-y-0 left-0 w-80 bg-white border-r flex flex-col shadow-2xl md:shadow-none z-[60] transition-transform duration-300
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
