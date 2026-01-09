@@ -15,22 +15,104 @@ import 'jspdf-autotable';
 const STORAGE_KEY = 'gemini_gantt_data';
 
 const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'dept-1', name: '開發部' },
+  { id: 'dept-4', name: '企劃部' },
   { id: 'dept-2', name: '設計部' },
+  { id: 'dept-1', name: '開發部' },
+  { id: 'dept-5', name: '業務部' },
+  { id: 'dept-6', name: '行銷部' },
   { id: 'dept-3', name: '維運部' },
 ];
 
+const today = startOfDay(new Date());
+
 const INITIAL_TASKS: Task[] = [
   {
-    id: '1',
-    name: '需求分析 & 規劃',
-    startDate: startOfDay(new Date()),
-    endDate: addDays(startOfDay(new Date()), 5),
+    id: 't1',
+    name: '市場需求調查與功能定義',
+    startDate: today,
+    endDate: addDays(today, 7),
     color: '#6366f1',
-    progress: 80,
-    notes: '初步客戶訪談已完成，待確認預算細節。',
+    progress: 100,
+    notes: '確認記帳 App 的核心功能與差異化優勢。',
+    departmentId: 'dept-4',
+    relatedTaskIds: ['t2']
+  },
+  {
+    id: 't2',
+    name: 'UI/UX 介面流程設計',
+    startDate: addDays(today, 7),
+    endDate: addDays(today, 17),
+    color: '#ec4899',
+    progress: 60,
+    notes: '包含 Wireframe 與使用者操作路徑圖。',
+    departmentId: 'dept-2',
+    relatedTaskIds: ['t3', 't4']
+  },
+  {
+    id: 't6',
+    name: '金融業者支付介面洽談',
+    startDate: addDays(today, 7),
+    endDate: addDays(today, 25),
+    color: '#f59e0b',
+    progress: 30,
+    notes: '洽談銀行端與第三方支付 API 介接合作。',
+    departmentId: 'dept-5',
+    relatedTaskIds: ['t5']
+  },
+  {
+    id: 't4',
+    name: '資料庫與 API 架構建置',
+    startDate: addDays(today, 17),
+    endDate: addDays(today, 27),
+    color: '#10b981',
+    progress: 20,
+    notes: '設計高擴展性的記帳明細儲存架構。',
     departmentId: 'dept-1',
-    relatedTaskIds: ['3']
+    relatedTaskIds: ['t5']
+  },
+  {
+    id: 't3',
+    name: '視覺 UI 繪製與切圖',
+    startDate: addDays(today, 17),
+    endDate: addDays(today, 30),
+    color: '#ec4899',
+    progress: 10,
+    notes: '最終設計稿確認與匯出素材。',
+    departmentId: 'dept-2',
+    relatedTaskIds: ['t5']
+  },
+  {
+    id: 't5',
+    name: 'App 核心功能開發',
+    startDate: addDays(today, 27),
+    endDate: addDays(today, 60),
+    color: '#6366f1',
+    progress: 0,
+    notes: '包含記帳、統計圖表、雲端備份等功能。',
+    departmentId: 'dept-1',
+    relatedTaskIds: ['t8']
+  },
+  {
+    id: 't7',
+    name: '上市行銷活動籌備',
+    startDate: addDays(today, 45),
+    endDate: addDays(today, 70),
+    color: '#3b82f6',
+    progress: 0,
+    notes: 'KOL 合作規劃與社群廣告素材製作。',
+    departmentId: 'dept-6',
+    relatedTaskIds: []
+  },
+  {
+    id: 't8',
+    name: '封測、Debug 與環境部署',
+    startDate: addDays(today, 60),
+    endDate: addDays(today, 75),
+    color: '#64748b',
+    progress: 0,
+    notes: '於測試環境進行最後校對與穩定性驗證。',
+    departmentId: 'dept-3',
+    relatedTaskIds: []
   }
 ];
 
@@ -88,8 +170,8 @@ const EditableHeader: React.FC<{
 };
 
 const App: React.FC = () => {
-  const [projectTitle, setProjectTitle] = useState('Gemini Gantt Master');
-  const [projectSubtitle, setProjectSubtitle] = useState('Departmental Schedule');
+  const [projectTitle, setProjectTitle] = useState('新記帳程式 App 開發案');
+  const [projectSubtitle, setProjectSubtitle] = useState('跨部門專案排程表');
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [viewMode, setViewMode] = useState<ViewMode>('Day');
@@ -379,11 +461,14 @@ const App: React.FC = () => {
                       className={`p-4 rounded-xl border-2 bg-white transition-all cursor-pointer ${selectedTaskId === task.id ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-100 hover:border-indigo-200'}`}
                     >
                       <div className="flex items-start justify-between">
-                        <h3 className="font-bold text-sm text-slate-800">{task.name}</h3>
+                        <h3 className="font-bold text-sm text-slate-800 truncate pr-2" title={task.name}>{task.name}</h3>
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: task.color }} />
                       </div>
                       <div className="text-[10px] text-slate-400 font-bold mt-2 flex items-center gap-1">
                         <Clock size={10} /> {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                      </div>
+                      <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-400" style={{ width: `${task.progress}%` }} />
                       </div>
                     </div>
                   ))
