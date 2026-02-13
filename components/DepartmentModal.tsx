@@ -31,7 +31,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ initialName = '', onC
         <div className="px-6 py-4 flex items-center justify-between border-b bg-slate-50">
           <div className="flex items-center gap-2 text-indigo-600">
             <Layers size={18} />
-            <h2 className="font-bold text-slate-800">{mode === 'add' ? '新增部門/分組' : '編輯名稱'}</h2>
+            <h2 className="font-bold text-slate-800">{mode === 'add' ? '新增組別' : '編輯組別名稱'}</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200/50 rounded-full transition-colors text-slate-400">
             <X size={18} />
@@ -46,7 +46,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ initialName = '', onC
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如：行銷部、專案 A 組..."
+              placeholder=""
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-medium text-sm"
             />
           </div>
