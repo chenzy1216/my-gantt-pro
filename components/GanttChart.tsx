@@ -36,10 +36,10 @@ const GanttChart: React.FC<GanttChartProps> = ({
   const [dragOverDeptIndex, setDragOverDeptIndex] = useState<number | null>(null);
 
   // 根據螢幕寬度調整左側欄位
-  const [deptColumnWidth, setDeptColumnWidth] = useState(window.innerWidth < 768 ? 120 : 180);
+  const [deptColumnWidth, setDeptColumnWidth] = useState(window.innerWidth < 768 ? 100 : 150);
 
   useEffect(() => {
-    const handleResize = () => setDeptColumnWidth(window.innerWidth < 768 ? 120 : 180);
+    const handleResize = () => setDeptColumnWidth(window.innerWidth < 768 ? 100 : 150);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -150,12 +150,11 @@ const GanttChart: React.FC<GanttChartProps> = ({
   return (
     <div className="w-full h-full overflow-auto bg-white select-none flex scroll-smooth" ref={containerRef}>
       
-      {/* Departments Column */}
+      {/* Groups Column */}
       <div className="sticky left-0 z-40 bg-white border-r flex flex-col flex-shrink-0" style={{ width: deptColumnWidth }}>
         <div className="bg-slate-50 border-b flex items-center px-2 md:px-4 justify-between flex-shrink-0" style={{ height: HEADER_HEIGHT }}>
-          <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">部門分組</span>
+          <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">組別</span>
           <button onClick={onAddDepartment} className="p-1.5 md:p-2 hover:bg-indigo-600 hover:text-white rounded-lg text-indigo-600 transition-colors border border-indigo-100 flex-shrink-0">
-            {/* Fix: Removed non-existent md:size prop from Lucide icon */}
             <Plus size={18} strokeWidth={3} />
           </button>
         </div>
@@ -212,7 +211,6 @@ const GanttChart: React.FC<GanttChartProps> = ({
         </div>
 
         {/* Grid & Bars */}
-        {/* Fix: Replaced Math.max with CSS max() string to correctly incorporate 'calc(100vh - 70px)' */}
         <div className="relative bg-white" style={{ height: `max(${totalHeight + 100}px, calc(100vh - 70px))` }}>
           <div className="absolute inset-0 flex pointer-events-none">
             {timelineDates.map((date, i) => (

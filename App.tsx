@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Task, ViewMode, Department } from './types';
 import { addDays, startOfDay, formatDate } from './utils/dateUtils';
@@ -11,27 +12,19 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
-const STORAGE_KEY = 'gemini_gantt_v2_data';
+const STORAGE_KEY = 'social_celebration_gantt_data';
 
 const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'dept-plan', name: '企劃部' },
-  { id: 'dept-sales', name: '業務部' },
-  { id: 'dept-mkt', name: '行銷部' },
-  { id: 'dept-design', name: '設計部' },
-  { id: 'dept-dev', name: '開發部' },
-  { id: 'dept-ops', name: '維運部' },
+  { id: 'dept-head', name: '總召' },
+  { id: 'dept-act', name: '活動組' },
+  { id: 'dept-pr', name: '公關組' },
+  { id: 'dept-design', name: '美宣組' },
+  { id: 'dept-equip', name: '總器組' },
 ];
 
 const today = startOfDay(new Date());
 
-const INITIAL_TASKS: Task[] = [
-  { id: 't1', name: '市場競品分析與產品規格書', startDate: today, endDate: addDays(today, 5), color: '#6366f1', progress: 100, departmentId: 'dept-plan', notes: '已完成核心功能定義。' },
-  { id: 't2', name: '品牌視覺與 App UI 規範', startDate: addDays(today, 5), endDate: addDays(today, 15), color: '#ec4899', progress: 75, departmentId: 'dept-design' },
-  { id: 't3', name: '潛在金融合作對象洽談', startDate: addDays(today, 2), endDate: addDays(today, 20), color: '#f59e0b', progress: 40, departmentId: 'dept-sales' },
-  { id: 't4', name: 'App 核心架構與 API 設計', startDate: addDays(today, 10), endDate: addDays(today, 25), color: '#10b981', progress: 30, departmentId: 'dept-dev' },
-  { id: 't5', name: '社群行銷預熱活動啟動', startDate: addDays(today, 20), endDate: addDays(today, 40), color: '#3b82f6', progress: 10, departmentId: 'dept-mkt' },
-  { id: 't6', name: '封閉測試環境搭建', startDate: addDays(today, 25), endDate: addDays(today, 35), color: '#64748b', progress: 0, departmentId: 'dept-ops' },
-];
+const INITIAL_TASKS: Task[] = [];
 
 const EditableHeader: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({ value, onChange, className }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -41,8 +34,8 @@ const EditableHeader: React.FC<{ value: string; onChange: (v: string) => void; c
 };
 
 const App: React.FC = () => {
-  const [projectTitle, setProjectTitle] = useState('新記帳程式 App 開發案');
-  const [projectSubtitle, setProjectSubtitle] = useState('跨部門協作總覽');
+  const [projectTitle, setProjectTitle] = useState('社慶甘特圖');
+  const [projectSubtitle, setProjectSubtitle] = useState('各組分工及期程');
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [viewMode, setViewMode] = useState<ViewMode>('Day');
@@ -62,13 +55,20 @@ const App: React.FC = () => {
   const loadData = useCallback((data: any) => {
     if (!data) return;
     if (data.projectTitle) setProjectTitle(data.projectTitle);
+    if (data.projectSubtitle) setProjectSubtitle(data.projectSubtitle);
     if (data.departments) setDepartments(data.departments);
     if (data.tasks) setTasks(data.tasks.map((t:any) => ({ ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate) })));
   }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) try { loadData(JSON.parse(saved)); } catch(e) {}
+    if (saved) {
+      try {
+        loadData(JSON.parse(saved));
+      } catch(e) {
+        console.error("Failed to load saved data", e);
+      }
+    }
   }, [loadData]);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ const App: React.FC = () => {
   }, [projectTitle, projectSubtitle, departments, tasks]);
 
   const handleExportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(tasks.map(t => ({ '任務': t.name, '部門': departments.find(d => d.id === t.departmentId)?.name, '開始': formatDate(t.startDate), '結束': formatDate(t.endDate), '進度': `${t.progress}%` })));
+    const ws = XLSX.utils.json_to_sheet(tasks.map(t => ({ '任務': t.name, '組別': departments.find(d => d.id === t.departmentId)?.name, '開始': formatDate(t.startDate), '結束': formatDate(t.endDate), '進度': `${t.progress}%` })));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Tasks"); XLSX.writeFile(wb, `${projectTitle}.xlsx`);
   };
 
@@ -108,7 +108,7 @@ const App: React.FC = () => {
               <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded-lg transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{m === 'Day' ? '日' : m === 'Week' ? '週' : '月'}</button>
             ))}
           </div>
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0].id })} className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"><Plus size={18}/>新增</button>
+          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"><Plus size={18}/>新增</button>
         </div>
       </header>
 
@@ -122,18 +122,25 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50/20">
             {activeTab === 'edit' ? (
               <div className="space-y-3">
-                {tasks.map(t => (
-                  <div key={t.id} onClick={(e) => { e.stopPropagation(); setSelectedTaskId(t.id); }} onDoubleClick={() => setEditingTask(t)} className={`p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${selectedTaskId === t.id ? 'border-indigo-500 shadow-lg shadow-indigo-50' : 'border-slate-100 hover:border-indigo-200'}`}>
-                    <div className="flex justify-between items-start mb-2"><span className="font-bold text-sm truncate pr-2">{t.name}</span><div className="w-3 h-3 rounded-full" style={{backgroundColor: t.color}}/></div>
-                    <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1"><Clock size={10}/> {formatDate(t.startDate)} ~ {formatDate(t.endDate)}</div>
+                {tasks.length === 0 ? (
+                  <div className="text-center py-20 text-slate-300">
+                    <Clock size={24} className="mx-auto mb-2" />
+                    <p className="text-xs font-bold">目前無任務</p>
                   </div>
-                ))}
+                ) : (
+                  tasks.map(t => (
+                    <div key={t.id} onClick={(e) => { e.stopPropagation(); setSelectedTaskId(t.id); }} onDoubleClick={() => setEditingTask(t)} className={`p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${selectedTaskId === t.id ? 'border-indigo-500 shadow-lg shadow-indigo-50' : 'border-slate-100 hover:border-indigo-200'}`}>
+                      <div className="flex justify-between items-start mb-2"><span className="font-bold text-sm truncate pr-2">{t.name}</span><div className="w-3 h-3 rounded-full" style={{backgroundColor: t.color}}/></div>
+                      <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1"><Clock size={10}/> {formatDate(t.startDate)} ~ {formatDate(t.endDate)}</div>
+                    </div>
+                  ))
+                )}
               </div>
             ) : activeTab === 'ai' ? (
               <div className="space-y-4">
                 {isAiAvailable ? (
                   <>
-                    <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="描述您的專案，例如：開發一個購物車功能需要 5 天，接著設計 UI 3 天..." className="w-full h-40 p-4 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                    <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="描述您的活動規劃，AI 將自動生成排程..." className="w-full h-40 p-4 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
                     <button disabled={isAiLoading || !aiInput.trim()} onClick={handleAiSuggest} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex justify-center items-center gap-2">{isAiLoading ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"/> : <><Sparkles size={16}/>智能生成</>}</button>
                   </>
                 ) : <div className="text-center py-10 opacity-50"><ShieldAlert className="mx-auto mb-2"/><p className="text-xs">AI 密鑰未配置，此功能已禁用</p></div>}
@@ -161,7 +168,7 @@ const App: React.FC = () => {
             onReorderDepartments={(s, e) => { const r = Array.from(departments); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); setDepartments(r); }}
             jumpToTodayTrigger={jumpTrigger} selectedTaskId={selectedTaskId}
           />
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0].id })} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
+          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
         </div>
       </main>
 
