@@ -18,7 +18,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
   const [edited, setEdited] = useState<Task>({ ...task, relatedTaskIds: task.relatedTaskIds || [] });
 
   const handleDateChange = (field: 'startDate' | 'endDate', val: string) => {
-    const newDate = startOfDay(new Date(val));
+    if (!val) return;
+    // 解析 YYYY-MM-DD 為本地時間的凌晨 0 點
+    const [year, month, day] = val.split('-').map(Number);
+    const newDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     setEdited(prev => ({ ...prev, [field]: newDate }));
   };
 
@@ -77,7 +80,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-1">
-                <Users size={12} /> 所屬部門 / 分組
+                <Users size={12} /> 所屬組別
               </label>
               <select
                 value={edited.departmentId}
