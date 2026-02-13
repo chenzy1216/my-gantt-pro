@@ -7,7 +7,7 @@ import GanttChart from './components/GanttChart';
 import TaskModal from './components/TaskModal';
 import DateSummaryModal from './components/DateSummaryModal';
 import DepartmentModal from './components/DepartmentModal';
-import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon, ZoomIn, ZoomOut } from 'lucide-react';
+import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon, ZoomIn, ZoomOut, Map as MapIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -29,7 +29,7 @@ const INITIAL_TASKS: Task[] = [];
 const EditableHeader: React.FC<{ value: string; onChange: (v: string) => void; className?: string }> = ({ value, onChange, className }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [temp, setTemp] = useState(value);
-  if (isEditing) return <input autoFocus className="border-b-2 border-indigo-500 outline-none bg-transparent" value={temp} onChange={e => setTemp(e.target.value)} onBlur={() => { setIsEditing(false); onChange(temp); }} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />;
+  if (isEditing) return <input autoFocus className="border-b-2 border-[#166534] outline-none bg-transparent" value={temp} onChange={e => setTemp(e.target.value)} onBlur={() => { setIsEditing(false); onChange(temp); }} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />;
   return <div onClick={() => setIsEditing(true)} className={`cursor-pointer group flex items-center gap-2 ${className}`}>{value} <Edit3 size={14} className="opacity-0 group-hover:opacity-50" /></div>;
 };
 
@@ -86,7 +86,7 @@ const App: React.FC = () => {
     setIsAiLoading(true);
     try {
       const suggestions = await geminiService.parseTaskInput(aiInput, formatDate(new Date()));
-      const newTasks = suggestions.map((s: any) => ({ id: Math.random().toString(36).substr(2,9), name: s.name, startDate: addDays(today, s.offsetFromBase), endDate: addDays(today, s.offsetFromBase + s.durationDays), color: s.color || '#6366f1', progress: 0, departmentId: departments[0].id }));
+      const newTasks = suggestions.map((s: any) => ({ id: Math.random().toString(36).substr(2,9), name: s.name, startDate: addDays(today, s.offsetFromBase), endDate: addDays(today, s.offsetFromBase + s.durationDays), color: s.color || '#166534', progress: 0, departmentId: departments[0].id }));
       setTasks(prev => [...prev, ...newTasks]); setAiInput(''); setActiveTab('edit'); setIsSidebarOpen(false);
     } catch (e) { alert("AI 解析失敗"); } finally { setIsAiLoading(false); }
   };
@@ -94,9 +94,17 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-white" onClick={() => setSelectedTaskId(null)}>
       <header className="border-b px-4 py-3 flex items-center justify-between z-50 bg-white shadow-sm flex-wrap gap-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg"><Menu size={20}/></button>
-          <div className="hidden sm:block bg-indigo-600 p-2 rounded-lg text-white"><LayoutPanelLeft size={20}/></div>
+          
+          {/* 調整為一般『地圖』樣式 Logo */}
+          <div className="flex flex-col items-center flex-shrink-0">
+            <div className="w-11 h-11 flex items-center justify-center bg-white rounded-xl border-2 border-[#166534] shadow-sm overflow-hidden text-[#166534]">
+               <MapIcon size={24} strokeWidth={2.5} />
+            </div>
+            <span className="text-[9px] font-black text-[#166534] mt-0.5 tracking-widest uppercase">Planning</span>
+          </div>
+
           <div className="min-w-0">
             <EditableHeader value={projectTitle} onChange={setProjectTitle} className="text-lg font-bold text-slate-800 truncate" />
             <div className="hidden sm:block text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{projectSubtitle}</div>
@@ -104,26 +112,25 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-          {/* Zoom Controls */}
           <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
             <button onClick={() => setZoomLevel(prev => Math.max(0.4, prev - 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomOut size={16}/></button>
             <input 
               type="range" min="0.4" max="2.0" step="0.1" 
               value={zoomLevel} onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-              className="w-16 md:w-24 accent-indigo-600 h-1.5 cursor-pointer"
+              className="w-16 md:w-24 accent-[#166534] h-1.5 cursor-pointer"
             />
             <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomIn size={16}/></button>
           </div>
 
-          <button onClick={() => setJumpTrigger(p => p+1)} title="回到今天" className="p-2 bg-slate-100 rounded-lg text-indigo-600 hover:bg-slate-200 transition-colors shrink-0"><LocateFixed size={18}/></button>
+          <button onClick={() => setJumpTrigger(p => p+1)} title="回到今天" className="p-2 bg-slate-100 rounded-lg text-[#166534] hover:bg-slate-200 transition-colors shrink-0"><LocateFixed size={18}/></button>
           
           <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold shrink-0">
             {(['Day', 'Week', 'Month'] as ViewMode[]).map(m => (
-              <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded-lg transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{m === 'Day' ? '日' : m === 'Week' ? '週' : '月'}</button>
+              <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded-lg transition-all ${viewMode === m ? 'bg-white text-[#166534] shadow-sm' : 'text-slate-500'}`}>{m === 'Day' ? '日' : m === 'Week' ? '週' : '月'}</button>
             ))}
           </div>
           
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all shrink-0"><Plus size={18}/>新增</button>
+          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#166534', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-[#166534] text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-green-100 hover:brightness-110 transition-all shrink-0"><Plus size={18}/>新增</button>
         </div>
       </header>
 
@@ -131,7 +138,7 @@ const App: React.FC = () => {
         <aside className={`fixed md:relative inset-y-0 left-0 w-80 bg-white border-r flex flex-col z-[60] transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex border-b text-[10px] font-black uppercase tracking-widest text-slate-400">
             {['edit', 'ai', 'settings'].map(t => (
-              <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-4 border-b-2 transition-colors ${activeTab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent'}`}>{t === 'edit' ? '任務清單' : t === 'ai' ? 'AI 排程' : '設定'}</button>
+              <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-4 border-b-2 transition-colors ${activeTab === t ? 'border-[#166534] text-[#166534]' : 'border-transparent'}`}>{t === 'edit' ? '任務清單' : t === 'ai' ? 'AI 排程' : '設定'}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50/20">
@@ -144,7 +151,7 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   tasks.map(t => (
-                    <div key={t.id} onClick={(e) => { e.stopPropagation(); setSelectedTaskId(t.id); }} onDoubleClick={() => setEditingTask(t)} className={`p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${selectedTaskId === t.id ? 'border-indigo-500 shadow-lg shadow-indigo-50' : 'border-slate-100 hover:border-indigo-200'}`}>
+                    <div key={t.id} onClick={(e) => { e.stopPropagation(); setSelectedTaskId(t.id); }} onDoubleClick={() => setEditingTask(t)} className={`p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${selectedTaskId === t.id ? 'border-[#166534] shadow-lg shadow-green-50' : 'border-slate-100 hover:border-green-200'}`}>
                       <div className="flex justify-between items-start mb-2"><span className="font-bold text-sm truncate pr-2">{t.name}</span><div className="w-3 h-3 rounded-full" style={{backgroundColor: t.color}}/></div>
                       <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1"><Clock size={10}/> {formatDate(t.startDate)} ~ {formatDate(t.endDate)}</div>
                     </div>
@@ -155,8 +162,8 @@ const App: React.FC = () => {
               <div className="space-y-4">
                 {isAiAvailable ? (
                   <>
-                    <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="描述您的活動規劃，AI 將自動生成排程..." className="w-full h-40 p-4 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-                    <button disabled={isAiLoading || !aiInput.trim()} onClick={handleAiSuggest} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex justify-center items-center gap-2">{isAiLoading ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"/> : <><Sparkles size={16}/>智能生成</>}</button>
+                    <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="描述您的活動規劃，AI 將自動生成排程..." className="w-full h-40 p-4 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#166534] resize-none" />
+                    <button disabled={isAiLoading || !aiInput.trim()} onClick={handleAiSuggest} className="w-full py-3 bg-[#166534] text-white rounded-xl font-bold flex justify-center items-center gap-2">{isAiLoading ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"/> : <><Sparkles size={16}/>智能生成</>}</button>
                   </>
                 ) : <div className="text-center py-10 opacity-50"><ShieldAlert className="mx-auto mb-2"/><p className="text-xs">AI 密鑰未配置，此功能已禁用</p></div>}
               </div>
@@ -183,7 +190,7 @@ const App: React.FC = () => {
             onReorderDepartments={(s, e) => { const r = Array.from(departments); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); setDepartments(r); }}
             jumpToTodayTrigger={jumpTrigger} selectedTaskId={selectedTaskId}
           />
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
+          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#166534', progress: 0, departmentId: departments[0]?.id || '' })} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#166534] text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
         </div>
       </main>
 
