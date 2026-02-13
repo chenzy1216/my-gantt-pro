@@ -7,7 +7,7 @@ import GanttChart from './components/GanttChart';
 import TaskModal from './components/TaskModal';
 import DateSummaryModal from './components/DateSummaryModal';
 import DepartmentModal from './components/DepartmentModal';
-import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon } from 'lucide-react';
+import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon, ZoomIn, ZoomOut } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [viewMode, setViewMode] = useState<ViewMode>('Day');
+  const [zoomLevel, setZoomLevel] = useState(1.0); // 1.0 is default
   const [aiInput, setAiInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'ai' | 'settings'>('edit');
@@ -92,23 +93,37 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-white" onClick={() => setSelectedTaskId(null)}>
-      <header className="border-b px-4 py-3 flex items-center justify-between z-50 bg-white shadow-sm">
+      <header className="border-b px-4 py-3 flex items-center justify-between z-50 bg-white shadow-sm flex-wrap gap-y-3">
         <div className="flex items-center gap-3">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg"><Menu size={20}/></button>
           <div className="hidden sm:block bg-indigo-600 p-2 rounded-lg text-white"><LayoutPanelLeft size={20}/></div>
-          <div>
-            <EditableHeader value={projectTitle} onChange={setProjectTitle} className="text-lg font-bold text-slate-800" />
-            <div className="hidden sm:block text-[10px] text-slate-400 font-bold uppercase tracking-widest">{projectSubtitle}</div>
+          <div className="min-w-0">
+            <EditableHeader value={projectTitle} onChange={setProjectTitle} className="text-lg font-bold text-slate-800 truncate" />
+            <div className="hidden sm:block text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{projectSubtitle}</div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setJumpTrigger(p => p+1)} className="p-2 bg-slate-100 rounded-lg text-indigo-600 hover:bg-slate-200 transition-colors"><LocateFixed size={18}/></button>
-          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+
+        <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
+            <button onClick={() => setZoomLevel(prev => Math.max(0.4, prev - 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomOut size={16}/></button>
+            <input 
+              type="range" min="0.4" max="2.0" step="0.1" 
+              value={zoomLevel} onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+              className="w-16 md:w-24 accent-indigo-600 h-1.5 cursor-pointer"
+            />
+            <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomIn size={16}/></button>
+          </div>
+
+          <button onClick={() => setJumpTrigger(p => p+1)} title="回到今天" className="p-2 bg-slate-100 rounded-lg text-indigo-600 hover:bg-slate-200 transition-colors shrink-0"><LocateFixed size={18}/></button>
+          
+          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold shrink-0">
             {(['Day', 'Week', 'Month'] as ViewMode[]).map(m => (
               <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded-lg transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{m === 'Day' ? '日' : m === 'Week' ? '週' : '月'}</button>
             ))}
           </div>
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"><Plus size={18}/>新增</button>
+          
+          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#94a3b8', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all shrink-0"><Plus size={18}/>新增</button>
         </div>
       </header>
 
@@ -158,7 +173,7 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-hidden relative">
           <GanttChart
-            tasks={tasks} departments={departments} viewMode={viewMode}
+            tasks={tasks} departments={departments} viewMode={viewMode} zoomLevel={zoomLevel}
             onUpdateTask={t => setTasks(prev => prev.map(p => p.id === t.id ? t : p))}
             onTaskClick={t => setSelectedTaskId(t.id)} onTaskDoubleClick={t => setEditingTask(t)}
             onDateClick={d => setSummaryDate(d)} isDelayed={() => false}

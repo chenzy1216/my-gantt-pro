@@ -9,6 +9,7 @@ interface GanttChartProps {
   tasks: Task[];
   departments: Department[];
   viewMode: ViewMode;
+  zoomLevel?: number;
   onUpdateTask: (task: Task) => void;
   onTaskClick: (task: Task) => void;
   onTaskDoubleClick: (task: Task) => void;
@@ -26,14 +27,12 @@ const ROW_HEIGHT = 60;
 const HEADER_HEIGHT = 70;
 
 const GanttChart: React.FC<GanttChartProps> = ({ 
-  tasks, departments, viewMode, onUpdateTask, onTaskClick, onTaskDoubleClick, onDateClick, isDelayed,
+  tasks, departments, viewMode, zoomLevel = 1.0, onUpdateTask, onTaskClick, onTaskDoubleClick, onDateClick, isDelayed,
   onAddDepartment, onUpdateDepartment, onDeleteDepartment, onReorderDepartments,
   jumpToTodayTrigger, selectedTaskId
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
-  const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
-  const [dragOverDeptIndex, setDragOverDeptIndex] = useState<number | null>(null);
 
   // 根據螢幕寬度調整左側欄位
   const [deptColumnWidth, setDeptColumnWidth] = useState(window.innerWidth < 768 ? 100 : 150);
@@ -51,12 +50,15 @@ const GanttChart: React.FC<GanttChartProps> = ({
   } | null>(null);
 
   const dayWidth = useMemo(() => {
+    let baseWidth = 60;
     switch (viewMode) {
-      case 'Week': return 20;
-      case 'Month': return 8;
-      default: return window.innerWidth < 768 ? 50 : 60;
+      case 'Week': baseWidth = 25; break;
+      case 'Month': baseWidth = 10; break;
+      default: baseWidth = window.innerWidth < 768 ? 55 : 65;
     }
-  }, [viewMode]);
+    // 應用 ZoomLevel
+    return baseWidth * zoomLevel;
+  }, [viewMode, zoomLevel]);
 
   const timelineDates = useMemo(() => {
     if (tasks.length === 0) {
@@ -68,7 +70,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
     const minDate = new Date(Math.min(...starts));
     const maxDate = new Date(Math.max(...ends));
     
-    const buffer = viewMode === 'Month' ? 90 : 30;
+    const buffer = viewMode === 'Month' ? 120 : 60;
     return getDatesInRange(addDays(minDate, -buffer), addDays(maxDate, buffer));
   }, [tasks, viewMode]);
 
@@ -148,7 +150,7 @@ const GanttChart: React.FC<GanttChartProps> = ({
   const relatedIds = useMemo(() => selectedTask?.relatedTaskIds || [], [selectedTask]);
 
   return (
-    <div className="w-full h-full overflow-auto bg-white select-none flex scroll-smooth" ref={containerRef}>
+    <div className="w-full h-full overflow-auto bg-white select-none flex scroll-smooth no-scrollbar" ref={containerRef}>
       
       {/* Groups Column */}
       <div className="sticky left-0 z-40 bg-white border-r flex flex-col flex-shrink-0" style={{ width: deptColumnWidth }}>
@@ -163,13 +165,13 @@ const GanttChart: React.FC<GanttChartProps> = ({
           {deptData.map((dept, idx) => (
             <div 
               key={dept.id} 
-              className="border-b bg-white group hover:bg-slate-50 relative flex flex-col justify-center px-2 md:px-4"
+              className="border-b bg-white group hover:bg-slate-50 relative flex flex-col justify-center px-2 md:px-4 transition-all"
               style={{ height: dept.height }}
             >
               <div className="flex items-center justify-between gap-1 overflow-hidden">
                 <span className="text-xs md:text-sm font-bold text-slate-700 truncate">{dept.name}</span>
                 <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                   <button onClick={() => onUpdateDepartment(dept.id)} className="p-1 hover:text-indigo-600 transition-colors"><Edit2 size={12} /></button>
+                   <button onClick={(e) => { e.stopPropagation(); onUpdateDepartment(dept.id); }} className="p-1 hover:text-indigo-600 transition-colors"><Edit2 size={12} /></button>
                 </div>
               </div>
               <span className="text-[8px] md:text-[9px] text-slate-400 font-black uppercase tracking-tighter mt-0.5">
@@ -198,13 +200,13 @@ const GanttChart: React.FC<GanttChartProps> = ({
                 className={`flex-shrink-0 flex flex-col items-center justify-center border-r text-[9px] font-mono cursor-pointer hover:bg-indigo-50/50 ${weekend ? 'bg-slate-50/30' : ''}`}
                 style={{ width: dayWidth }}
               >
-                <span className="text-slate-400 text-[7px] md:text-[9px] uppercase tracking-tighter">
-                  {date.toLocaleDateString('zh-TW', { weekday: 'short' }).charAt(0)}
+                <span className="text-slate-400 text-[7px] md:text-[9px] uppercase tracking-tighter overflow-hidden">
+                  {dayWidth > 15 ? date.toLocaleDateString('zh-TW', { weekday: 'short' }).charAt(0) : ''}
                 </span>
-                <span className={`text-[10px] md:text-xs font-black mt-1 ${isToday ? 'bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-sm' : 'text-slate-700'}`}>
-                  {date.getDate()}
+                <span className={`text-[10px] md:text-xs font-black mt-1 ${isToday ? 'bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-sm shrink-0' : 'text-slate-700'}`}>
+                  {dayWidth > 10 ? date.getDate() : ''}
                 </span>
-                {isFirstOfMonth && <span className="text-[7px] text-indigo-500 font-black mt-0.5">{date.getMonth() + 1}月</span>}
+                {isFirstOfMonth && dayWidth > 15 && <span className="text-[7px] text-indigo-500 font-black mt-0.5">{date.getMonth() + 1}月</span>}
               </div>
             );
           })}
