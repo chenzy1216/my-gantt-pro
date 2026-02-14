@@ -19,7 +19,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
 
   const handleDateChange = (field: 'startDate' | 'endDate', val: string) => {
     if (!val) return;
-    // 解析 YYYY-MM-DD 為本地時間的凌晨 0 點
     const [year, month, day] = val.split('-').map(Number);
     const newDate = new Date(year, month - 1, day, 0, 0, 0, 0);
     setEdited(prev => ({ ...prev, [field]: newDate }));
@@ -35,12 +34,21 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
     });
   };
 
+  // 當組別改變時，自動套用預設顏色
+  const handleDepartmentChange = (deptId: string) => {
+    const dept = departments.find(d => d.id === deptId);
+    setEdited(prev => ({
+      ...prev,
+      departmentId: deptId,
+      color: dept?.defaultColor || prev.color // 若組別有預設色則更新，否則維持原樣
+    }));
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
       
       <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
         <div className={`px-6 py-5 flex items-center justify-between border-b ${isDelayed ? 'bg-rose-50' : 'bg-slate-50'}`}>
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${isDelayed ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'}`}>
@@ -73,7 +81,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
               type="text"
               value={edited.name}
               onChange={(e) => setEdited({ ...edited, name: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-semibold"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#166534] focus:bg-white outline-none transition-all font-semibold"
             />
           </div>
 
@@ -84,8 +92,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
               </label>
               <select
                 value={edited.departmentId}
-                onChange={(e) => setEdited({ ...edited, departmentId: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium"
+                onChange={(e) => handleDepartmentChange(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#166534] outline-none transition-all text-sm font-medium"
               >
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
@@ -129,13 +137,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
               <span>進度 ({edited.progress}%)</span>
             </label>
             <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
+              type="range" min="0" max="100" step="5"
               value={edited.progress}
               onChange={(e) => setEdited({ ...edited, progress: parseInt(e.target.value) })}
-              className="w-full accent-indigo-600 h-2 bg-slate-100 rounded-lg cursor-pointer"
+              className="w-full accent-[#166534] h-2 bg-slate-100 rounded-lg cursor-pointer"
             />
           </div>
 
@@ -151,7 +156,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
                       type="checkbox"
                       checked={edited.relatedTaskIds?.includes(otherTask.id)}
                       onChange={() => toggleRelatedTask(otherTask.id)}
-                      className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                      className="w-4 h-4 rounded text-[#166534] border-slate-300 focus:ring-[#166534]"
                     />
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: otherTask.color }} />
                     <span className="truncate font-medium text-slate-700">{otherTask.name}</span>
@@ -170,7 +175,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
             <textarea
               value={edited.notes || ''}
               onChange={(e) => setEdited({ ...edited, notes: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm min-h-[100px] resize-none"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#166534] text-sm min-h-[100px] resize-none"
               placeholder="任務細節..."
             />
           </div>
@@ -180,10 +185,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, allTasks, departments, onCl
           <button onClick={() => onDelete(task.id)} className="flex items-center gap-2 text-rose-500 hover:text-rose-600 font-bold text-sm px-3 py-2 rounded-lg hover:bg-rose-100/50">
             <Trash2 size={16} /> 刪除
           </button>
-          
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="px-6 py-2 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-200 transition-colors">取消</button>
-            <button onClick={() => onSave(edited)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 transition-all">
+            <button onClick={() => onSave(edited)} className="flex items-center gap-2 bg-[#166534] hover:bg-[#114f29] text-white px-8 py-2 rounded-xl font-bold text-sm shadow-lg shadow-green-200 transition-all">
               <Save size={16} /> 儲存
             </button>
           </div>

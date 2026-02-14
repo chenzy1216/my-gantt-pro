@@ -14,12 +14,13 @@ import 'jspdf-autotable';
 
 const STORAGE_KEY = 'social_celebration_gantt_data';
 
+// 預設各組顏色設定
 const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'dept-head', name: '總召' },
-  { id: 'dept-act', name: '活動組' },
-  { id: 'dept-pr', name: '公關組' },
-  { id: 'dept-design', name: '美宣組' },
-  { id: 'dept-equip', name: '總器組' },
+  { id: 'dept-head', name: '總召', defaultColor: '#166534' },   // 綠色
+  { id: 'dept-act', name: '活動組', defaultColor: '#2563eb' },   // 藍色
+  { id: 'dept-pr', name: '公關組', defaultColor: '#eab308' },    // 黃色
+  { id: 'dept-design', name: '美宣組', defaultColor: '#e11d48' }, // 紅色
+  { id: 'dept-equip', name: '總器組', defaultColor: '#64748b' },  // 灰色
 ];
 
 const today = startOfDay(new Date());
@@ -61,7 +62,6 @@ const App: React.FC = () => {
     if (data.tasks) setTasks(data.tasks.map((t:any) => ({ ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate) })));
   }, []);
 
-  // 偵測網址中的分享資料
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith('#share=')) {
@@ -70,7 +70,7 @@ const App: React.FC = () => {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
         if (confirm(`偵測到分享的專案：「${decoded.projectTitle}」，是否載入並蓋過目前資料？`)) {
           loadData(decoded);
-          window.location.hash = ''; // 清除網址避免重複詢問
+          window.location.hash = '';
         }
       } catch (e) {
         console.error("無法解析分享連結", e);
@@ -130,12 +130,9 @@ const App: React.FC = () => {
     const data = JSON.stringify({ projectTitle, projectSubtitle, departments, tasks });
     const base64 = btoa(unescape(encodeURIComponent(data)));
     const shareUrl = `${window.location.origin}${window.location.pathname}#share=${base64}`;
-    
-    // 檢查網址是否過長
     if (shareUrl.length > 2000) {
       alert('資料量較大，網址分享可能失效。建議使用「匯出專案備份」功能傳送檔案。');
     }
-
     navigator.clipboard.writeText(shareUrl).then(() => {
       alert('分享連結已複製！您可以將此網址貼給其他人，他們開啟後即可載入您的進度。');
     }).catch(err => {
@@ -148,9 +145,34 @@ const App: React.FC = () => {
     setIsAiLoading(true);
     try {
       const suggestions = await geminiService.parseTaskInput(aiInput, formatDate(new Date()));
-      const newTasks = suggestions.map((s: any) => ({ id: Math.random().toString(36).substr(2,9), name: s.name, startDate: addDays(today, s.offsetFromBase), endDate: addDays(today, s.offsetFromBase + s.durationDays), color: s.color || '#166534', progress: 0, departmentId: departments[0].id }));
+      const newTasks = suggestions.map((s: any) => {
+        const defaultDept = departments[0];
+        return { 
+          id: Math.random().toString(36).substr(2,9), 
+          name: s.name, 
+          startDate: addDays(today, s.offsetFromBase), 
+          endDate: addDays(today, s.offsetFromBase + s.durationDays), 
+          color: s.color || defaultDept.defaultColor || '#166534', 
+          progress: 0, 
+          departmentId: defaultDept.id 
+        };
+      });
       setTasks(prev => [...prev, ...newTasks]); setAiInput(''); setActiveTab('edit'); setIsSidebarOpen(false);
     } catch (e) { alert("AI 解析失敗"); } finally { setIsAiLoading(false); }
+  };
+
+  // 輔助函式：建立新工項
+  const createNewTask = () => {
+    const defaultDept = departments[0];
+    setEditingTask({ 
+      id: Math.random().toString(36).substr(2,9), 
+      name: '新任務', 
+      startDate: today, 
+      endDate: addDays(today, 3), 
+      color: defaultDept?.defaultColor || '#166534', // 使用組別預設色
+      progress: 0, 
+      departmentId: defaultDept?.id || '' 
+    });
   };
 
   return (
@@ -158,40 +180,30 @@ const App: React.FC = () => {
       <header className="border-b px-4 py-3 flex items-center justify-between z-50 bg-white shadow-sm flex-wrap gap-y-3">
         <div className="flex items-center gap-4">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg"><Menu size={20}/></button>
-          
           <div className="flex flex-col items-center flex-shrink-0">
             <div className="w-11 h-11 flex items-center justify-center bg-white rounded-xl border-2 border-[#166534] shadow-sm overflow-hidden text-[#166534]">
                <MapIcon size={24} strokeWidth={2.5} />
             </div>
             <span className="text-[9px] font-black text-[#166534] mt-0.5 tracking-widest uppercase">Planning</span>
           </div>
-
           <div className="min-w-0">
             <EditableHeader value={projectTitle} onChange={setProjectTitle} className="text-lg font-bold text-slate-800 truncate" />
             <div className="hidden sm:block text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{projectSubtitle}</div>
           </div>
         </div>
-
         <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
           <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
             <button onClick={() => setZoomLevel(prev => Math.max(0.4, prev - 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomOut size={16}/></button>
-            <input 
-              type="range" min="0.4" max="2.0" step="0.1" 
-              value={zoomLevel} onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-              className="w-16 md:w-24 accent-[#166534] h-1.5 cursor-pointer"
-            />
+            <input type="range" min="0.4" max="2.0" step="0.1" value={zoomLevel} onChange={(e) => setZoomLevel(parseFloat(e.target.value))} className="w-16 md:w-24 accent-[#166534] h-1.5 cursor-pointer"/>
             <button onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.2))} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ZoomIn size={16}/></button>
           </div>
-
           <button onClick={() => setJumpTrigger(p => p+1)} title="回到今天" className="p-2 bg-slate-100 rounded-lg text-[#166534] hover:bg-slate-200 transition-colors shrink-0"><LocateFixed size={18}/></button>
-          
           <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold shrink-0">
             {(['Day', 'Week', 'Month'] as ViewMode[]).map(m => (
               <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded-lg transition-all ${viewMode === m ? 'bg-white text-[#166534] shadow-sm' : 'text-slate-500'}`}>{m === 'Day' ? '日' : m === 'Week' ? '週' : '月'}</button>
             ))}
           </div>
-          
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#166534', progress: 0, departmentId: departments[0]?.id || '' })} className="hidden sm:flex items-center gap-2 bg-[#166534] text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-green-100 hover:brightness-110 transition-all shrink-0"><Plus size={18}/>新增</button>
+          <button onClick={createNewTask} className="hidden sm:flex items-center gap-2 bg-[#166534] text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-green-100 hover:brightness-110 transition-all shrink-0"><Plus size={18}/>新增</button>
         </div>
       </header>
 
@@ -243,7 +255,6 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </section>
-
                 <section>
                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">資料備份與分享</h3>
                   <div className="space-y-2">
@@ -257,15 +268,9 @@ const App: React.FC = () => {
                       產生分享連結 (URL)
                     </button>
                   </div>
-                  <p className="mt-2 text-[10px] text-slate-400 px-1 leading-relaxed italic">
-                    * 連結分享僅適合小規模計畫，大型專案建議使用「匯出專案備份」檔案。
-                  </p>
                 </section>
-
                 <section className="pt-6 border-t">
-                  <button onClick={() => { if(confirm('重置將刪除所有任務！')) { setTasks([]); } }} className="w-full p-3 text-rose-500 text-xs font-bold hover:bg-rose-50 rounded-xl transition-colors">
-                    清空所有工項資料
-                  </button>
+                  <button onClick={() => { if(confirm('重置將刪除所有任務！')) { setTasks([]); } }} className="w-full p-3 text-rose-500 text-xs font-bold hover:bg-rose-50 rounded-xl transition-colors">清空所有工項資料</button>
                 </section>
               </div>
             )}
@@ -286,7 +291,7 @@ const App: React.FC = () => {
             onReorderDepartments={(s, e) => { const r = Array.from(departments); const [rem] = r.splice(s, 1); r.splice(e, 0, rem); setDepartments(r); }}
             jumpToTodayTrigger={jumpTrigger} selectedTaskId={selectedTaskId}
           />
-          <button onClick={() => setEditingTask({ id: Math.random().toString(36).substr(2,9), name: '新任務', startDate: today, endDate: addDays(today, 3), color: '#166534', progress: 0, departmentId: departments[0]?.id || '' })} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#166534] text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
+          <button onClick={createNewTask} className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#166534] text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"><Plus size={24}/></button>
         </div>
       </main>
 
