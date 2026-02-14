@@ -7,7 +7,7 @@ import GanttChart from './components/GanttChart';
 import TaskModal from './components/TaskModal';
 import DateSummaryModal from './components/DateSummaryModal';
 import DepartmentModal from './components/DepartmentModal';
-import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon, ZoomIn, ZoomOut, Map as MapIcon } from 'lucide-react';
+import { Plus, Sparkles, LayoutPanelLeft, Clock, LocateFixed, Edit3, Settings, Share2, ShieldAlert, FileSpreadsheet, FileText, Menu, X as CloseIcon, ZoomIn, ZoomOut, Map as MapIcon, Download, Upload, Link } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -39,7 +39,7 @@ const App: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [viewMode, setViewMode] = useState<ViewMode>('Day');
-  const [zoomLevel, setZoomLevel] = useState(1.0); // 1.0 is default
+  const [zoomLevel, setZoomLevel] = useState(1.0);
   const [aiInput, setAiInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'ai' | 'settings'>('edit');
@@ -61,6 +61,23 @@ const App: React.FC = () => {
     if (data.tasks) setTasks(data.tasks.map((t:any) => ({ ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate) })));
   }, []);
 
+  // 偵測網址中的分享資料
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#share=')) {
+      try {
+        const base64 = hash.replace('#share=', '');
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
+        if (confirm(`偵測到分享的專案：「${decoded.projectTitle}」，是否載入並蓋過目前資料？`)) {
+          loadData(decoded);
+          window.location.hash = ''; // 清除網址避免重複詢問
+        }
+      } catch (e) {
+        console.error("無法解析分享連結", e);
+      }
+    }
+  }, [loadData]);
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -81,6 +98,51 @@ const App: React.FC = () => {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Tasks"); XLSX.writeFile(wb, `${projectTitle}.xlsx`);
   };
 
+  const handleExportJson = () => {
+    const data = JSON.stringify({ projectTitle, projectSubtitle, departments, tasks }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectTitle}_備份_${formatDate(new Date())}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (confirm('確定要匯入此檔案？目前的資料將會被覆蓋。')) {
+          loadData(data);
+        }
+      } catch (err) {
+        alert('檔案格式錯誤，請確保是有效的 JSON 備份檔。');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleGenerateShareLink = () => {
+    const data = JSON.stringify({ projectTitle, projectSubtitle, departments, tasks });
+    const base64 = btoa(unescape(encodeURIComponent(data)));
+    const shareUrl = `${window.location.origin}${window.location.pathname}#share=${base64}`;
+    
+    // 檢查網址是否過長
+    if (shareUrl.length > 2000) {
+      alert('資料量較大，網址分享可能失效。建議使用「匯出專案備份」功能傳送檔案。');
+    }
+
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert('分享連結已複製！您可以將此網址貼給其他人，他們開啟後即可載入您的進度。');
+    }).catch(err => {
+      console.error('無法複製連結', err);
+    });
+  };
+
   const handleAiSuggest = async () => {
     if (!aiInput.trim() || !isAiAvailable) return;
     setIsAiLoading(true);
@@ -97,7 +159,6 @@ const App: React.FC = () => {
         <div className="flex items-center gap-4">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg"><Menu size={20}/></button>
           
-          {/* 調整為一般『地圖』樣式 Logo */}
           <div className="flex flex-col items-center flex-shrink-0">
             <div className="w-11 h-11 flex items-center justify-center bg-white rounded-xl border-2 border-[#166534] shadow-sm overflow-hidden text-[#166534]">
                <MapIcon size={24} strokeWidth={2.5} />
@@ -168,9 +229,44 @@ const App: React.FC = () => {
                 ) : <div className="text-center py-10 opacity-50"><ShieldAlert className="mx-auto mb-2"/><p className="text-xs">AI 密鑰未配置，此功能已禁用</p></div>}
               </div>
             ) : (
-              <div className="space-y-3">
-                <button onClick={handleExportExcel} className="w-full p-3 bg-white border rounded-xl flex items-center gap-3 text-sm font-bold hover:bg-slate-50 transition-colors"><FileSpreadsheet size={16} className="text-emerald-500"/>匯出 Excel</button>
-                <button onClick={() => { if(confirm('重置將刪除所有任務！')) { setTasks([]); } }} className="w-full p-3 text-rose-500 text-xs font-bold mt-10">清空所有工項資料</button>
+              <div className="space-y-6">
+                <section>
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">資料匯出</h3>
+                  <div className="space-y-2">
+                    <button onClick={handleExportExcel} className="w-full p-3 bg-white border rounded-xl flex items-center gap-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                      <FileSpreadsheet size={16} className="text-emerald-500"/>
+                      匯出 Excel 報表
+                    </button>
+                    <button onClick={handleExportJson} className="w-full p-3 bg-white border rounded-xl flex items-center gap-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                      <Download size={16} className="text-indigo-500"/>
+                      匯出專案備份 (JSON)
+                    </button>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">資料備份與分享</h3>
+                  <div className="space-y-2">
+                    <label className="w-full p-3 bg-white border rounded-xl flex items-center gap-3 text-sm font-bold hover:bg-slate-50 transition-colors cursor-pointer">
+                      <Upload size={16} className="text-amber-500"/>
+                      匯入專案備份
+                      <input type="file" accept=".json" onChange={handleImportJson} className="hidden" />
+                    </label>
+                    <button onClick={handleGenerateShareLink} className="w-full p-3 bg-white border rounded-xl flex items-center gap-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                      <Link size={16} className="text-sky-500"/>
+                      產生分享連結 (URL)
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-400 px-1 leading-relaxed italic">
+                    * 連結分享僅適合小規模計畫，大型專案建議使用「匯出專案備份」檔案。
+                  </p>
+                </section>
+
+                <section className="pt-6 border-t">
+                  <button onClick={() => { if(confirm('重置將刪除所有任務！')) { setTasks([]); } }} className="w-full p-3 text-rose-500 text-xs font-bold hover:bg-rose-50 rounded-xl transition-colors">
+                    清空所有工項資料
+                  </button>
+                </section>
               </div>
             )}
           </div>
